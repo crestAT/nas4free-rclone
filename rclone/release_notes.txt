@@ -1,0 +1,6 @@
+﻿Version Date        Description
+0.1     2018.10.30  first release
+
+N: ...  new feature
+C: ...  changes
+F: ...  bug fix
