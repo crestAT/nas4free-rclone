@@ -330,22 +330,24 @@ $(document).ready(function(){
 				<td width="5%" class="listhdrc" nowrap="nowrap"><?=gettext("Action");?></td>
 			</tr>
 			<?php
-				ksort($configuration['tasks'], SORT_NATURAL | SORT_FLAG_CASE);
-				foreach($configuration['tasks'] as $key => $cTask) {
-					echo "<tr>";
-					echo "<td class='listlr'>{$key}</td>";
-					echo "<td class='listr'>{$cTask['source']}</td>";
-					echo "<td class='listr'>{$cTask['destination']}</td>";
-					echo "<td class='listrc'>{$cTask['mode']}</td>";
-					echo "<td class='listr'>{$cTask['flags']}</td>";
-					echo "<td class='listrc' nowrap='nowrap'>
-						<button name='execute' type='submit' class='formbtn' title='".gettext('Execute task')."' value='{$key}'>".gettext('Execute')."</button>
-						<button name='addCron' type='submit' class='formbtn' title='".gettext('Add task to cron')."' value='{$key}'>".gettext('Add')."</button>
-						<button name='remove' type='submit' class='formbtn' title='".gettext('Remove task')."' value='{$key}' 
-							onclick=\"return confirm('".gettext('Do you really want to remove the task?')."')\">".gettext('Remove')."</button>
-					</td>";
-					echo "</tr>";
-				}
+				if (is_array($configuration['tasks'])) {
+					ksort($configuration['tasks'], SORT_NATURAL | SORT_FLAG_CASE);
+					foreach($configuration['tasks'] as $key => $cTask) {
+						echo "<tr>";
+						echo "<td class='listlr'>{$key}</td>";
+						echo "<td class='listr'>{$cTask['source']}</td>";
+						echo "<td class='listr'>{$cTask['destination']}</td>";
+						echo "<td class='listrc'>{$cTask['mode']}</td>";
+						echo "<td class='listr'>{$cTask['flags']}</td>";
+						echo "<td class='listrc' nowrap='nowrap'>
+							<button name='execute' type='submit' class='formbtn' title='".gettext('Execute task')."' value='{$key}'>".gettext('Execute')."</button>
+							<button name='addCron' type='submit' class='formbtn' title='".gettext('Add task to cron')."' value='{$key}'>".gettext('Add')."</button>
+							<button name='remove' type='submit' class='formbtn' title='".gettext('Remove task')."' value='{$key}'
+								onclick=\"return confirm('".gettext('Do you really want to remove the task?')."')\">".gettext('Remove')."</button>
+						</td>";
+						echo "</tr>";
+					}
+				} 
 			?>
 		</table>
 	</td></tr>
