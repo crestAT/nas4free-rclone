@@ -1,4 +1,9 @@
 ﻿Version Date        Description
+0.2     2018.11.03  several GUI improvements
+                    N: allow task editing
+                    C: delete appropriate cron tab entries on task remove
+                    F: browser button overlapped next field in some cases
+
 0.1     2018.10.30  first release
 
 N: ...  new feature

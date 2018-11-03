@@ -52,10 +52,16 @@ if (!isset($configuration) || !is_array($configuration)) $configuration = array(
 
 // initialize variables --------------------------------------------------
 $logFile = "{$configuration['rootfolder']}/{$configName}.log";
-$rcloneCmd = "rclone --config {$configuration['configPath']} --log-file {$logFile}";
+$rcloneCmd = "/usr/local/bin/rclone --config '{$configuration['configPath']}' --log-file '{$logFile}'";
 $logBackupDate = "{$configuration['rootfolder']}/{$configName}_backup-date.txt";
-$backupFailedMsg = "\<font color='red'\>\<b\>".gettext("Last backup failed!")."\<\/b\>\<\/font\>";
+$backupSuccessMsg = gettext("successfully finished");
+$backupFailedMsg = gettext("stopped with error(s)");
 exec("{$rcloneCmd} listremotes", $definedRemotes);
+$rcName = "";
+$rcSource = "";
+$rcDestination = "";
+$rcMode = "copy";
+$rcFlags = "";
 // -----------------------------------------------------------------------
 
 function get_backup_info() {
@@ -66,7 +72,7 @@ function get_backup_info() {
 function get_process_info() {
     if (exec("pgrep rclone | awk 'BEGIN {ORS=\" \"} {print}'", $pid)) $state = '<a style=" background-color: #00ff00; ">&nbsp;&nbsp;<b>'
 		.gettext("running").'</b>&nbsp;&nbsp;</a>'."&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PID:&nbsp".$pid[0]; 
-    else $state = '<a style=" background-color: #ff0000; ">&nbsp;&nbsp;<b>'.gettext("stopped").'</b>&nbsp;&nbsp;</a>';
+    else $state = '<a style=" background-color:orange; ">&nbsp;&nbsp;<b>'.gettext("idle").'</b>&nbsp;&nbsp;</a>';
 	return ($state);
 }
 
@@ -82,8 +88,8 @@ if ($_POST) {
 		$configuration['configPath'] = trim($_POST['configPath']);
 		if ($configuration['configPath'] == "") $input_errors[] = sprintf(gettext("Parameter %s must not be empty!"), gettext("Configuration File"));
 		else {
-			$savemsg .= get_std_save_message(ext_save_config($configFile, $configuration)).$dbClientMsg."<br />";
-			$rcloneCmd = "rclone --config {$configuration['configPath']} --log-file {$logFile}";
+			$savemsg .= get_std_save_message(ext_save_config($configFile, $configuration))."<br />";
+			$rcloneCmd = "/usr/local/bin/rclone --config '{$configuration['configPath']}' --log-file '{$logFile}'";
 		}	
 	}
 
@@ -120,12 +126,39 @@ if ($_POST) {
 		else $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['execute'], gettext("unsuccessfully started"))."<br />";
 	}
 
+	if (isset($_POST['edit']) && $_POST['edit']) {
+		$rcName = $_POST['edit'];
+		$rcSource = $configuration['tasks'][$_POST['edit']]['source'];
+		$rcDestination = $configuration['tasks'][$_POST['edit']]['destination'];
+		$rcMode = $configuration['tasks'][$_POST['edit']]['mode'];
+		$rcFlags = $configuration['tasks'][$_POST['edit']]['flags'];
+	}
+
 	if (isset($_POST['remove']) && $_POST['remove']) {
 		$rcTaskFile = "{$configuration['rootfolder']}/tasks/{$configName}-task-{$_POST['remove']}.sh";
 		if (is_file($rcTaskFile)) unlink($rcTaskFile);
 		unset($configuration['tasks'][$_POST['remove']]);
+		ext_save_config($configFile, $configuration);
+		
+		if (is_array($config['cron']) && is_array($config['cron']['job']['0'])) {
+			$rc_param_count = count($config['cron']['job']);
+		    for ($i = 0; $i < $rc_param_count; $i++) {
+		        if (preg_match("/Rclone task {$_POST['remove']}/", $config['cron']['job'][$i]['desc'])) 
+#$savemsg .= "cron job Rclone task {$_POST['remove']} found <br />";
+					unset($config['cron']['job'][$i]);
+			}
+			write_config();
+			$retval = 0;
+			if (!file_exists($d_sysrebootreqd_path)) {
+				config_lock();
+				$retval |= rc_update_service("cron");
+				config_unlock();
+			}
+#			if ($retval == 0) $savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("removed from cron"))."<br />";
+#			else $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("unsuccessfully removed from cron"));
+			if ($retval != 0) $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("unsuccessfully removed from cron"));
+		}
 		$savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("removed"))."<br />";
-		$savemsg .= get_std_save_message(ext_save_config($configFile, $configuration))."<br />";
 	}
 
 	if (isset($_POST['addCron']) && $_POST['addCron']) {
@@ -162,14 +195,18 @@ if ($_POST) {
 			$retval |= rc_update_service("cron");
 			config_unlock();
 		}
-		$savemsg .= get_std_save_message($retval)."<br />";
+#		$savemsg .= get_std_save_message($retval)."<br />";
 		if ($retval == 0) {
-			$savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['addCron'], gettext("added to cron"))."<br />";
+			$savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['addCron'], gettext("added to cron"))." ".
+				gettext("Default is everyday at 1:00, consider creating your own schedule.")."<br />";
 			updatenotify_delete("cronjob");
-		} 
+		} else $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("unsuccessfully added to cron"));
 	}
 
 	if (isset($_POST['add']) && $_POST['add']) {
+		$replaceSearch = array("*", "?");
+		$replaceReplace = array("\*", "\?");
+
 		$_POST['rcName'] = str_replace(" ", "", $_POST['rcName']);
 		$_POST['rcSource'] = trim($_POST['rcSource']);
 		$_POST['rcDestination'] = trim($_POST['rcDestination']);
@@ -181,29 +218,31 @@ if ($_POST) {
 			$configuration['tasks'][$_POST['rcName']]['destination'] = $_POST['rcDestination'];
 			$configuration['tasks'][$_POST['rcName']]['mode'] = $_POST['rcMode'];
 			$configuration['tasks'][$_POST['rcName']]['flags'] = trim($_POST['rcFlags']);
-
+			$shFlags = str_replace($replaceSearch, $replaceReplace, trim($_POST['rcFlags']));	// do it for the shell script
+			
 			/* create task file */
 			if (!is_dir("{$configuration['rootfolder']}/tasks")) mkdir("{$configuration['rootfolder']}/tasks", 0775);
 			$rcTaskFile = "{$configuration['rootfolder']}/tasks/{$configName}-task-{$_POST['rcName']}.sh";
 			$script = fopen($rcTaskFile, "w");
-			$savemsg .= get_std_save_message(ext_save_config($configFile, $configuration))."<br />";
+			$return_val .= ext_save_config($configFile, $configuration);
+			if ($return_val == 0) $savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['rcName'], gettext("saved successfully"))."<br />";
+			else $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['rcName'], gettext("unsuccessfully saved")); 
 			fwrite($script, 
 "#!/bin/sh
 # WARNING: THIS IS AN AUTOMATICALLY CREATED SCRIPT, DO NOT CHANGE THE CONTENT!
 # Command for cron usage: {$rcTaskFile}
-logger {$appName} task {$_POST['rcName']} started
-{$rcloneCmd} {$_POST['rcFlags']} {$_POST['rcMode']} {$_POST['rcSource']} {$_POST['rcDestination']}
+logger '{$appName} task {$_POST['rcName']} started'
+{$rcloneCmd} {$shFlags} {$_POST['rcMode']} '{$_POST['rcSource']}' '{$_POST['rcDestination']}'
 if [ $? == 0 ]; then
 	logger '{$appName} task {$_POST['rcName']} successfully finished'
-	date > {$logBackupDate}
+	echo '{$_POST['rcName']} {$backupSuccessMsg}' `date` > {$logBackupDate}
 else
 	logger '{$appName} task {$_POST['rcName']} stopped with error(s)'
-	echo {$backupFailedMsg} > {$logBackupDate}
+	echo '<font color='red'><b>{$_POST['rcName']} {$backupFailedMsg}</b></font>' `date` > {$logBackupDate}
 fi
 ");
 			fclose($script);
 			chmod($rcTaskFile, 0755);
-#			$savemsg .= sprintf(gettext("Command for cron usage: %s"), $rcTaskFile).".<br />";
 		}
 	}
 }
@@ -253,7 +292,7 @@ $(document).ready(function(){
         <table width="100%" border="0" cellpadding="6" cellspacing="0">
             <?php 
 				html_titleline(gettext("Status"));
-            	html_text("installation_directory", gettext("Installation directory"), sprintf(gettext("The extension is installed in %s"), $configuration['rootfolder']));
+            	html_text("installation_directory", gettext("Installation Directory"), sprintf(gettext("The extension is installed in %s"), $configuration['rootfolder']));
 				html_text("productversion", "{$appName} ".gettext("Version"), $configuration['productVersion'], false);
 			?>
             <tr>
@@ -261,7 +300,7 @@ $(document).ready(function(){
 				<td class="vtable"><span id="procinfo"><?=get_process_info()?></span></td>
             </tr>
             <tr>
-				<td class="vncell"><?=gettext("Last Backup");?></td>
+				<td class="vncell"><?=gettext("Last Run");?></td>
 				<td class="vtable"><span id="procinfo_backup"><?=get_backup_info()?></span></td>
             </tr>
             <?php
@@ -294,22 +333,31 @@ $(document).ready(function(){
 #foreach($definedRemotes as $dRemote) html_text("remote", $dRemote, exec("{$rcloneCmd} about {$dRemote} | awk 'BEGIN {ORS=\" \"} {print $1,$2}'"));
 #foreach($configuration['tasks'] as $key => $cTask) html_text("task", $key, "{$cTask['mode']} {$cTask['source']} {$cTask['destination']} {$cTask['flags']}");
 				echo "<tr>";
-				echo "<td class='listlr'><input name='rcName' style='width:98%;' title='".gettext('Task Name')."' placeholder='Name' /></td>";
+				echo "<td class='listlr'><input name='rcName' style='width:98%;' title='".gettext('Task Name')."' placeholder='Name' value='{$rcName}' /></td>";
+				/* source */
 				echo "<td class='listr'><span style='width:98%; white-space:nowrap;'>";
-					echo "<input name='rcSource' type='text' class='formfld' id='rcSource' style='width:85%;' value='/mnt' />&nbsp;";
+					echo "<input name='rcSource' type='text' class='formfld' id='rcSource' style='width:calc(100% - 33px);' placeholder='Local path (use browser button) or remote:path' value='{$rcSource}' />&nbsp;";
 					echo "<input name='rcSourcebrowsebtn' type='button' class='formbtn' id='rcSourcebrowsebtn' onclick='rcSourceifield = form.rcSource; 
 						filechooser = window.open(&quot;filechooser.php?p=&quot;+encodeURIComponent(rcSourceifield.value)+&quot;&amp;sd=/mnt&quot;, &quot;filechooser&quot;, 
 						&quot;scrollbars=yes,toolbar=no,menubar=no,statusbar=no,width=550,height=300&quot;); filechooser.ifield = rcSourceifield; 
 						window.ifield = rcSourceifield;' value='...' />";
 				echo "</span></td>";
-				echo "<td class='listr'><input name='rcDestination' style='width:98%;' title='".gettext('Destination')."' placeholder='remote:destination' /></td>";
-				echo "<td class='listr'><select name='rcMode' style='width:98%;' >";
+				/* destination */
+				echo "<td class='listr'><span style='width:98%; white-space:nowrap;'>";
+					echo "<input name='rcDestination' type='text' class='formfld' id='rcDestination' style='width:calc(100% - 33px);' placeholder='Local path (use browser button) or remote:path' value='{$rcDestination}' />&nbsp;";
+					echo "<input name='rcDestinationbrowsebtn' type='button' class='formbtn' id='rcDestinationbrowsebtn' onclick='rcDestinationifield = form.rcDestination;
+						filechooser = window.open(&quot;filechooser.php?p=&quot;+encodeURIComponent(rcDestinationifield.value)+&quot;&amp;sd=/mnt&quot;, &quot;filechooser&quot;,
+						&quot;scrollbars=yes,toolbar=no,menubar=no,statusbar=no,width=550,height=300&quot;); filechooser.ifield = rcDestinationifield;
+						window.ifield = rcDestinationifield;' value='...' />";
+				echo "</span></td>";
+
+				echo "<td class='listr'><select name='rcMode' style='width:99%;' value='{$rcMode}' >";
 					echo "<option value='copy'>copy</option>";
 					echo "<option value='move'>move</option>";
 					echo "<option value='sync'>sync</option>";
 				echo "</select></td>";
-				echo "<td class='listr' nowrap='nowrap'><input name='rcFlags' style='width:98%;' title='".gettext('Additional Parameters')."' value='' /></td>";
-				echo "<td class='listrc' nowrap='nowrap'><input name='add' type='submit' class='formbtn' title='".gettext('Add Task')."' value='".gettext('Add')."' />";
+				echo "<td class='listr' nowrap='nowrap'><input name='rcFlags' style='width:99%;' title='".gettext('Additional Parameters')."' value='{$rcFlags}' /></td>";
+				echo "<td class='listrc' nowrap='nowrap'><input name='add' type='submit' class='formbtn' title='".gettext('Save task')."' value='".gettext('Save')."' />";
 				echo "</td>";
 				echo "</tr>";
 		?>
@@ -341,7 +389,8 @@ $(document).ready(function(){
 						echo "<td class='listr'>{$cTask['flags']}</td>";
 						echo "<td class='listrc' nowrap='nowrap'>
 							<button name='execute' type='submit' class='formbtn' title='".gettext('Execute task')."' value='{$key}'>".gettext('Execute')."</button>
-							<button name='addCron' type='submit' class='formbtn' title='".gettext('Add task to cron')."' value='{$key}'>".gettext('Add')."</button>
+							<button name='addCron' type='submit' class='formbtn' title='".gettext('Add task to cron')."' value='{$key}'>".gettext('Schedule')."</button>
+							<button name='edit' type='submit' class='formbtn' title='".gettext('Edit task')."' value='{$key}'>".gettext('Edit')."</button>
 							<button name='remove' type='submit' class='formbtn' title='".gettext('Remove task')."' value='{$key}'
 								onclick=\"return confirm('".gettext('Do you really want to remove the task?')."')\">".gettext('Remove')."</button>
 						</td>";
