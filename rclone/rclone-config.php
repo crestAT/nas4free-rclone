@@ -60,8 +60,9 @@ exec("{$rcloneCmd} listremotes", $definedRemotes);
 $rcName = "";
 $rcSource = "";
 $rcDestination = "";
-$rcMode = "copy";
+$rcMode = "";
 $rcFlags = "";
+$selectOptions = array("copy", "move", "sync");
 // -----------------------------------------------------------------------
 
 function get_backup_info() {
@@ -72,7 +73,7 @@ function get_backup_info() {
 function get_process_info() {
     if (exec("pgrep rclone | awk 'BEGIN {ORS=\" \"} {print}'", $pid)) $state = '<a style=" background-color: #00ff00; ">&nbsp;&nbsp;<b>'
 		.gettext("running").'</b>&nbsp;&nbsp;</a>'."&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PID:&nbsp".$pid[0]; 
-    else $state = '<a style=" background-color:orange; ">&nbsp;&nbsp;<b>'.gettext("idle").'</b>&nbsp;&nbsp;</a>';
+    else $state = '<a style="color:black; background-color:darkgrey; ">&nbsp;&nbsp;<b>'.gettext("idle").'</b>&nbsp;&nbsp;</a>';
 	return ($state);
 }
 
@@ -144,7 +145,6 @@ if ($_POST) {
 			$rc_param_count = count($config['cron']['job']);
 		    for ($i = 0; $i < $rc_param_count; $i++) {
 		        if (preg_match("/Rclone task {$_POST['remove']}/", $config['cron']['job'][$i]['desc'])) 
-#$savemsg .= "cron job Rclone task {$_POST['remove']} found <br />";
 					unset($config['cron']['job'][$i]);
 			}
 			write_config();
@@ -154,8 +154,6 @@ if ($_POST) {
 				$retval |= rc_update_service("cron");
 				config_unlock();
 			}
-#			if ($retval == 0) $savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("removed from cron"))."<br />";
-#			else $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("unsuccessfully removed from cron"));
 			if ($retval != 0) $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("unsuccessfully removed from cron"));
 		}
 		$savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['remove'], gettext("removed"))."<br />";
@@ -195,7 +193,6 @@ if ($_POST) {
 			$retval |= rc_update_service("cron");
 			config_unlock();
 		}
-#		$savemsg .= get_std_save_message($retval)."<br />";
 		if ($retval == 0) {
 			$savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['addCron'], gettext("added to cron"))." ".
 				gettext("Default is everyday at 1:00, consider creating your own schedule.")."<br />";
@@ -305,6 +302,7 @@ $(document).ready(function(){
             </tr>
             <?php
             	html_text("remotes", gettext("Defined Remotes"), "<b>".exec("{$rcloneCmd} listremotes | awk 'BEGIN {ORS=\" \"} {print}'")."</b>");
+#foreach($definedRemotes as $dRemote) html_text("remote", "&#9493;&#9472;&#9472;&nbsp;{$dRemote}", exec("{$rcloneCmd} about {$dRemote} | awk 'BEGIN {ORS=\" \"} {print $1,$2}'"));
 				html_filechooser("configPath", gettext("Configuration File"), $pconfig['configPath'], sprintf(gettext("Path and file name for the %s configuration file."), $appName), $pconfig['configPath'], true, 60);
 			?>
 		</table>
@@ -330,13 +328,11 @@ $(document).ready(function(){
 				<td width="1%" class="listhdrc" nowrap="nowrap"><?=gettext("Action");?></td>
 			</tr>
 			<?php 
-#foreach($definedRemotes as $dRemote) html_text("remote", $dRemote, exec("{$rcloneCmd} about {$dRemote} | awk 'BEGIN {ORS=\" \"} {print $1,$2}'"));
-#foreach($configuration['tasks'] as $key => $cTask) html_text("task", $key, "{$cTask['mode']} {$cTask['source']} {$cTask['destination']} {$cTask['flags']}");
 				echo "<tr>";
-				echo "<td class='listlr'><input name='rcName' style='width:98%;' title='".gettext('Task Name')."' placeholder='Name' value='{$rcName}' /></td>";
+				echo "<td class='listlr'><input name='rcName' style='width:98%;' title='".gettext('Task Name')."' placeholder='".gettext('Name')."' value='{$rcName}' /></td>";
 				/* source */
 				echo "<td class='listr'><span style='width:98%; white-space:nowrap;'>";
-					echo "<input name='rcSource' type='text' class='formfld' id='rcSource' style='width:calc(100% - 33px);' placeholder='Local path (use browser button) or remote:path' value='{$rcSource}' />&nbsp;";
+					echo "<input name='rcSource' type='text' class='formfld' id='rcSource' style='width:calc(100% - 33px);' placeholder='".gettext('Local path (use browser button) or remote:path')."' value='{$rcSource}' />&nbsp;";
 					echo "<input name='rcSourcebrowsebtn' type='button' class='formbtn' id='rcSourcebrowsebtn' onclick='rcSourceifield = form.rcSource; 
 						filechooser = window.open(&quot;filechooser.php?p=&quot;+encodeURIComponent(rcSourceifield.value)+&quot;&amp;sd=/mnt&quot;, &quot;filechooser&quot;, 
 						&quot;scrollbars=yes,toolbar=no,menubar=no,statusbar=no,width=550,height=300&quot;); filechooser.ifield = rcSourceifield; 
@@ -344,17 +340,17 @@ $(document).ready(function(){
 				echo "</span></td>";
 				/* destination */
 				echo "<td class='listr'><span style='width:98%; white-space:nowrap;'>";
-					echo "<input name='rcDestination' type='text' class='formfld' id='rcDestination' style='width:calc(100% - 33px);' placeholder='Local path (use browser button) or remote:path' value='{$rcDestination}' />&nbsp;";
+					echo "<input name='rcDestination' type='text' class='formfld' id='rcDestination' style='width:calc(100% - 33px);' placeholder='".gettext('Local path (use browser button) or remote:path')."' value='{$rcDestination}' />&nbsp;";
 					echo "<input name='rcDestinationbrowsebtn' type='button' class='formbtn' id='rcDestinationbrowsebtn' onclick='rcDestinationifield = form.rcDestination;
 						filechooser = window.open(&quot;filechooser.php?p=&quot;+encodeURIComponent(rcDestinationifield.value)+&quot;&amp;sd=/mnt&quot;, &quot;filechooser&quot;,
 						&quot;scrollbars=yes,toolbar=no,menubar=no,statusbar=no,width=550,height=300&quot;); filechooser.ifield = rcDestinationifield;
 						window.ifield = rcDestinationifield;' value='...' />";
 				echo "</span></td>";
 
-				echo "<td class='listr'><select name='rcMode' style='width:99%;' value='{$rcMode}' >";
-					echo "<option value='copy'>copy</option>";
-					echo "<option value='move'>move</option>";
-					echo "<option value='sync'>sync</option>";
+				echo "<td class='listr'><select name='rcMode' style='width:99%;' >";
+					foreach($selectOptions as $sOption) 
+						if ($sOption == $rcMode) echo "<option value='{$sOption}' selected='selected'>{$sOption}</option>";
+						else echo "<option value='{$sOption}'>{$sOption}</option>"; 					
 				echo "</select></td>";
 				echo "<td class='listr' nowrap='nowrap'><input name='rcFlags' style='width:99%;' title='".gettext('Additional Parameters')."' value='{$rcFlags}' /></td>";
 				echo "<td class='listrc' nowrap='nowrap'><input name='add' type='submit' class='formbtn' title='".gettext('Save task')."' value='".gettext('Save')."' />";
@@ -364,7 +360,9 @@ $(document).ready(function(){
 		</table>
         <div id="remarks">
             <?php html_remark("note", gettext("Note"), 
-				sprintf(gettext("Please check the %s documentation")."</a>.", "<a href='https://rclone.org/docs/' target='_blank'>".$appName));?>
+				sprintf(gettext("Please check the %s documentation")."</a>.", "<a href='https://rclone.org/docs/' target='_blank'>".$appName)."<br />".
+				sprintf(gettext("For rclone CLI usage always use the additional parameters %s and %s"), "<b>--config {$pconfig['configPath']}</b>", "<b>--log-file {$configuration['rootfolder']}/rclone.log</b>"));
+			?>
         </div><br />
 
 		<!-- Task list -->
@@ -392,7 +390,7 @@ $(document).ready(function(){
 							<button name='addCron' type='submit' class='formbtn' title='".gettext('Add task to cron')."' value='{$key}'>".gettext('Schedule')."</button>
 							<button name='edit' type='submit' class='formbtn' title='".gettext('Edit task')."' value='{$key}'>".gettext('Edit')."</button>
 							<button name='remove' type='submit' class='formbtn' title='".gettext('Remove task')."' value='{$key}'
-								onclick=\"return confirm('".gettext('Do you really want to remove the task?')."')\">".gettext('Remove')."</button>
+								onclick=\"return confirm('".sprintf(gettext('Do you really want to remove the task %s?'), $key)."')\">".gettext('Remove')."</button>
 						</td>";
 						echo "</tr>";
 					}
