@@ -1,4 +1,16 @@
 ﻿Version Date        Description
+1.1     2018.11.16  minor GUI improvements
+                    N: add 'mount' and 'check' commands to command dropdown
+                    N: add task name to PID in Status for identification if more tasks are running simultaneously,
+                       to see the names for already defined tasks they must be loaded to edit and just saved once again
+                    N: add 'about' command (button) to 'Defined Remotes'
+                    N: add 'Single Command' feature to perform on demand calls with output directly to the GUI page,
+                       uses the 'Additional Parameters / Single Command' combined input field
+                    N: add Greek translation
+                    N: add Spanish translation
+                    N: add Swedish translation
+                    C: update German translation
+
 1.0     2018.11.05  further GUI improvements
                     N: add German translation
 

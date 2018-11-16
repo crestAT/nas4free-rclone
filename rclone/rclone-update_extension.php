@@ -105,8 +105,10 @@ bindtextdomain($domain, $localeExtDirectory);
 			?>
         </table>                                                                                                   
         <div id="update_remarks">
-            <?php html_remark("note_remove", gettext("Note"), gettext("Removing the extension from the server will leave the installation and data folders untouched.<br />
-				Uninstalling will remove the extension and delete all extension folders including the data folders from the system."));?>
+            <?php html_remark("note_remove", gettext("Note"), 
+				gettext("Removing the extension from the server will leave the installation and data folders untouched.")."<br />".
+				gettext("Uninstalling will remove the extension and delete all extension folders including the data folders from the system."));
+			?>
             <br />
             <input id="ext_update" name="ext_update" type="submit" class="formbtn" value="<?=gettext("Update");?>" 
 				onclick="return confirm('<?=gettext("The selected operation will be completed. Please do not click any other buttons!");?>')" />
