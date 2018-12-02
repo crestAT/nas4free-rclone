@@ -2,7 +2,7 @@
 /* 
     rclone-config.php
 
-    Copyright (c) 2017 - 2018 Andreas Schmidhuber
+    Copyright (c) 2017 - 2019 Andreas Schmidhuber
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -97,6 +97,9 @@ if ($_POST) {
 		else {
 			$savemsg .= get_std_save_message(ext_save_config($configFile, $configuration))."<br />";
 			$rcloneCmd = "/usr/local/bin/rclone --config '{$configuration['configPath']}' --log-file '{$logFile}'";
+			unset($definedRemotes);
+			exec("{$rcloneCmd} listremotes", $definedRemotes);
+			mwexec("ln -sf {$configuration['configPath']} /root/.config/rclone/rclone.conf", true);
 		}	
 	}
 
@@ -107,7 +110,7 @@ if ($_POST) {
 		else {
 			$return_val = mwexec("fetch -vo {$configuration['rootfolder']}/master.zip {$configuration['currentBinaryUrl']}", false);
 			if ($return_val == 0) {
-			    $return_val = mwexec("tar -xf {$configuration['rootfolder']}/master.zip -C {$configuration['rootfolder']}/bin --strip-components 1", true);
+			    $return_val = mwexec("LC_ALL=en_US.UTF-8 tar -xf {$configuration['rootfolder']}/master.zip -C {$configuration['rootfolder']}/bin --strip-components 1", true);
 			    if ($return_val == 0) {
 			        exec("rm {$configuration['rootfolder']}/master.zip");
 			        exec("chown root:wheel {$configuration['rootfolder']}/bin/*");
@@ -170,8 +173,11 @@ if ($_POST) {
 
 	if (isset($_POST['executeOnce']) && $_POST['executeOnce']) {
 		$execCommand = trim($_POST['rcFlags']);
-		if ($_POST['rcFlags'][0] == "-") $input_errors[] = gettext('Execute Single Command')." - ".gettext("not a valid command").": {$execCommand}";
-		else if (!empty($execCommand)) exec("{$rcloneCmd} {$execCommand}", $execOutput);
+		if ($execCommand[0] == "-") {
+			$input_errors[] = gettext('Execute Single Command')." -> ".gettext("not a valid command").": {$execCommand}";
+			$input_errors[] = sprintf(gettext("Use non-interactive commands like %s or %s in the input field %s"), "'tree remote:Remote/Path'", "'lsd remote:Remote/Path'",
+				"'".gettext("Additional Parameters")." / ".gettext("Single Command")."'");
+		} else if (!empty($execCommand)) exec("{$rcloneCmd} {$execCommand}", $execOutput);
 	}
 
 	if (isset($_POST['addCron']) && $_POST['addCron']) {
@@ -292,6 +298,9 @@ $(document).ready(function(){
 });
 //]]>
 </script>
+<style style="text/css">
+	.hoverTable tr:hover td {background-color:#CCCCCC;}
+</style>
 
 <form action="<?php echo $configName; ?>-config.php" method="post" name="iform" id="iform" onsubmit="spinner()">
     <table width="100%" border="0" cellpadding="0" cellspacing="0">
@@ -321,10 +330,11 @@ $(document).ready(function(){
 				<td class="vtable"><span id="procinfo_backup"><?=get_backup_info()?></span></td>
             </tr>
             <?php
-            	html_text("remotes", gettext("Defined Remotes"), "<b>".exec("{$rcloneCmd} listremotes | awk 'BEGIN {ORS=\" \"} {print}'")."</b>".
-					"&nbsp;&nbsp;&nbsp;<button name='about' type='submit' class='formbtn' title='".
-					gettext('Execute the about command for all defined remotes, please be patient as this can take a while!')."' value='about'>".gettext('About')."</button>"
-				);
+            	if (empty($definedRemotes)) $aboutButton = "";
+            	else $aboutButton = "&nbsp;&nbsp;&nbsp;<button name='about' type='submit' class='formbtn' title='".
+					gettext('Execute the about command for all defined remotes, please be patient as this can take a while!')."' value='about'>".gettext('About')."</button>";
+ 
+            	html_text("remotes", gettext("Defined Remotes"), "<b>".exec("{$rcloneCmd} listremotes | awk 'BEGIN {ORS=\" \"} {print}'")."</b>{$aboutButton}");
 				if (isset($_POST['about']) && $_POST['about']) foreach($aboutRemotes as $aRemote)
 					html_text("remote", "&#9495;&#9473;&#9473;&nbsp;{$aRemote[0]}", $aRemote[1]);
 				html_filechooser("configPath", gettext("Configuration File"), $pconfig['configPath'], sprintf(gettext("Path and file name for the %s configuration file."), $appName), $pconfig['configPath'], true, 60);
@@ -380,11 +390,13 @@ $(document).ready(function(){
 						if ($sOption == $rcMode) echo "<option value='{$sOption}' selected='selected'>{$sOption}</option>";
 						else echo "<option value='{$sOption}'>{$sOption}</option>"; 					
 				echo "</select></td>";
-				echo "<td class='listr' nowrap='nowrap'><input name='rcFlags' style='width:99%;' title='".gettext('Additional Parameters')." / ".gettext("Single Command").
-					"' placeholder='".sprintf(gettext('e.g. %s or command: %s'), "--exclude *.log --no-update-modtime", "lsd remote:My/Remote/Path")."' value='{$rcFlags}' /></td>";
+				echo "<td class='listr' nowrap='nowrap'><input name='rcFlags' style='width:99%;' 
+					title='".sprintf(gettext('e.g. %s or command: %s'), "--exclude *.log --no-update-modtime", "lsd remote:Remote/Path")."' 
+					placeholder='".sprintf(gettext('e.g. %s or command: %s'), "--exclude *.log --no-update-modtime", "lsd remote:Remote/Path")."' 
+					value='{$rcFlags}' /></td>";
 				echo "<td class='listrc' nowrap='nowrap'>
-					<button name='executeOnce' type='submit' class='formbtn' title='".gettext('Execute Single Command')."' value='executeOnce'>".gettext('Execute')."</button>
-					<button name='add' type='submit' class='formbtn' title='".gettext('Save task')."' value='add'>".gettext('Save')."</button>";
+					<button name='executeOnce' type='submit' class='formbtn' title='".gettext('Execute Single Command')."' value='executeOnce'><img src='images/right.png' height='10' width='10'></button>
+					<button name='add' type='submit' class='formbtn' title='".gettext('Save task')."' value='add'><img src='images/add.png' height='10' width='10'></button>";
 				echo "</td>";
 				echo "</tr>";
 		?>
@@ -413,7 +425,7 @@ $(document).ready(function(){
 				html_titleline(gettext("Task List"));
 			?>
  		</table>
-		<table width="100%" border="0" cellpadding="6" cellspacing="0">
+		<table class="hoverTable" width="100%" border="0" cellpadding="6" cellspacing="0">
 			<tr>
 				<td class="listhdrlr" nowrap='nowrap'><?=gettext("Task Name");?></td>
 				<td class="listhdrr"><?=gettext("Source");?></td>
@@ -433,11 +445,11 @@ $(document).ready(function(){
 						echo "<td class='listrc'>{$cTask['mode']}</td>";
 						echo "<td class='listr'>{$cTask['flags']}</td>";
 						echo "<td class='listrc' nowrap='nowrap'>
-							<button name='execute' type='submit' class='formbtn' title='".gettext('Execute task')."' value='{$key}'>".gettext('Execute')."</button>
-							<button name='addCron' type='submit' class='formbtn' title='".gettext('Add task to cron')."' value='{$key}'>".gettext('Schedule')."</button>
-							<button name='edit' type='submit' class='formbtn' title='".gettext('Edit task')."' value='{$key}'>".gettext('Edit')."</button>
-							<button name='remove' type='submit' class='formbtn' title='".gettext('Remove task')."' value='{$key}'
-								onclick=\"return confirm('".sprintf(gettext('Do you really want to remove the task %s?'), $key)."')\">".gettext('Remove')."</button>
+							<button name='execute' type='submit' class='formbtn' title='".gettext('Execute task')."' value='{$key}'><img src='images/right.png' height='10' width='10'></button>
+							<button name='addCron' type='submit' class='formbtn' title='".gettext('Add task to cron')."' value='{$key}'><img src='images/maintain.png' height='10' width='10'></button>
+							<button name='edit' type='submit' class='formbtn' title='".gettext('Edit task')."' value='{$key}'><img src='images/edit.png' height='10' width='10'></button>
+							<button name='remove' type='submit' class='formbtn' style='color:red' title='".gettext('Remove task')."' value='{$key}'
+								onclick=\"return confirm('".sprintf(gettext('Do you really want to remove the task %s?'), $key)."')\"><img style='color:red' src='images/delete.png' height='10' width='10'></button>
 						</td>";
 						echo "</tr>";
 					}

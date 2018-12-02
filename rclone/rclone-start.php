@@ -2,7 +2,7 @@
 /*
     rclone-start.php 
 
-    Copyright (c) 2017 - 2018 Andreas Schmidhuber
+    Copyright (c) 2017 - 2019 Andreas Schmidhuber
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -37,20 +37,23 @@ if (($configuration = ext_load_config($configFile)) === false) {
     exit;
 }
 
-if (is_link("/usr/local/share/locale-{$configName}")) unlink("/usr/local/share/locale-{$configName}");
-if (is_link("/usr/local/www/{$configName}-config.php")) unlink("/usr/local/www/{$configName}-config.php");
-if (is_link("/usr/local/www/{$configName}-update_extension.php")) unlink("/usr/local/www/{$configName}-update_extension.php");
-if (is_link("/usr/local/www/ext/{$configName}")) unlink("/usr/local/www/ext/{$configName}");
-if (is_link("/usr/local/bin/{$configName}")) unlink("/usr/local/bin/{$configName}");	// binary
+unlink_if_exists("/usr/local/share/locale-{$configName}");
+unlink_if_exists("/usr/local/www/{$configName}-config.php");
+unlink_if_exists("/usr/local/www/{$configName}-update_extension.php");
+unlink_if_exists("/usr/local/www/ext/{$configName}");
+unlink_if_exists("/usr/local/bin/{$configName}");	// binary
+unlink_if_exists("/root/.config/rclone/rclone.conf");
 
 $return_val = 0;
 // create links to extension files
-$return_val += mwexec("ln -sw {$rootfolder}/locale-{$configName} /usr/local/share/", true);
-$return_val += mwexec("ln -sw {$rootfolder}/{$configName}-config.php /usr/local/www/{$configName}-config.php", true);
-$return_val += mwexec("ln -sw {$rootfolder}/{$configName}-update_extension.php /usr/local/www/{$configName}-update_extension.php", true);
+$return_val += mwexec("ln -sf {$rootfolder}/locale-{$configName} /usr/local/share/", true);
+$return_val += mwexec("ln -sf {$rootfolder}/{$configName}-config.php /usr/local/www/{$configName}-config.php", true);
+$return_val += mwexec("ln -sf {$rootfolder}/{$configName}-update_extension.php /usr/local/www/{$configName}-update_extension.php", true);
 $return_val += mwexec("mkdir -p /usr/local/www/ext", true);
-$return_val += mwexec("ln -sw {$rootfolder}/ext /usr/local/www/ext/{$configName}", true);
-$return_val += mwexec("ln -sw {$rootfolder}/bin/{$configName} /usr/local/bin/{$configName}", true);	// binary
+$return_val += mwexec("ln -sf {$rootfolder}/ext /usr/local/www/ext/{$configName}", true);
+$return_val += mwexec("ln -sf {$rootfolder}/bin/{$configName} /usr/local/bin/{$configName}", true);	// binary
+// finally create link to rclone config for CLI usage
+$return_val += mwexec("ln -sf {$configuration['configPath']} /root/.config/rclone/rclone.conf", true);
 
 // check for product name and eventually rename translation files for new product name (XigmaNAS)
 $domain = strtolower(get_product_name());

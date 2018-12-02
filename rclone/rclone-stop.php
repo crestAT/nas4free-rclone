@@ -2,7 +2,7 @@
 /*
     rclone-stop.php
 
-    Copyright (c) 2017 - 2018 Andreas Schmidhuber
+    Copyright (c) 2017 - 2019 Andreas Schmidhuber
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -30,12 +30,13 @@ require_once("config.inc");
 $configName = "rclone";
 $rootfolder = dirname(__FILE__);
 
-if (is_link("/usr/local/share/locale-{$configName}")) unlink("/usr/local/share/locale-{$configName}");
-if (is_link("/usr/local/www/{$configName}-config.php")) unlink("/usr/local/www/{$configName}-config.php");
-if (is_link("/usr/local/www/{$configName}-update_extension.php")) unlink("/usr/local/www/{$configName}-update_extension.php");
-if (is_link("/usr/local/www/ext/{$configName}")) unlink("/usr/local/www/ext/{$configName}");
+unlink_if_exists("/usr/local/share/locale-{$configName}");
+unlink_if_exists("/usr/local/www/{$configName}-config.php");
+unlink_if_exists("/usr/local/www/{$configName}-update_extension.php");
+unlink_if_exists("/usr/local/www/ext/{$configName}");
 mwexec("rmdir -p /usr/local/www/ext");
-if (is_link("/usr/local/bin/{$configName}")) unlink("/usr/local/bin/{$configName}");	// binary
+unlink_if_exists("/usr/local/bin/{$configName}");	// binary
+unlink_if_exists("/root/.config/rclone/rclone.conf");
 
 exec("logger {$configName}-extension: stopped"); 
 ?>
