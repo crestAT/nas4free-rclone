@@ -78,7 +78,7 @@ $configuration['currentBinaryUrl'] = "https://downloads.rclone.org/rclone-curren
 $return_val = mwexec("fetch {$verify_hostname} -vo {$configuration['rootfolder']}/master.zip {$configuration['currentBinaryUrl']}", false);
 if ($return_val == 0) {
 	mwexec("mkdir -p {$configuration['rootfolder']}/bin");				// create subfolder bin
-    $return_val = mwexec("tar -xf {$configuration['rootfolder']}/master.zip -C {$configuration['rootfolder']}/bin --strip-components 1", true);
+    $return_val = mwexec("LC_ALL=en_US.UTF-8 tar -xf {$configuration['rootfolder']}/master.zip -C {$configuration['rootfolder']}/bin --strip-components 1", true);
     if ($return_val == 0) {
         exec("rm {$configuration['rootfolder']}/master.zip");
         exec("chown root:wheel {$configuration['rootfolder']}/bin/*");
