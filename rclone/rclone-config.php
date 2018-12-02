@@ -99,6 +99,7 @@ if ($_POST) {
 			$rcloneCmd = "/usr/local/bin/rclone --config '{$configuration['configPath']}' --log-file '{$logFile}'";
 			unset($definedRemotes);
 			exec("{$rcloneCmd} listremotes", $definedRemotes);
+			mwexec("mkdir -p /root/.config/rclone", true);
 			mwexec("ln -sf {$configuration['configPath']} /root/.config/rclone/rclone.conf", true);
 		}	
 	}

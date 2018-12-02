@@ -53,6 +53,7 @@ $return_val += mwexec("mkdir -p /usr/local/www/ext", true);
 $return_val += mwexec("ln -sf {$rootfolder}/ext /usr/local/www/ext/{$configName}", true);
 $return_val += mwexec("ln -sf {$rootfolder}/bin/{$configName} /usr/local/bin/{$configName}", true);	// binary
 // finally create link to rclone config for CLI usage
+$return_val += mwexec("mkdir -p /root/.config/rclone", true);
 $return_val += mwexec("ln -sf {$configuration['configPath']} /root/.config/rclone/rclone.conf", true);
 
 // check for product name and eventually rename translation files for new product name (XigmaNAS)
