@@ -1,4 +1,14 @@
 ﻿Version Date        Description
+1.3		2019.09.21  N: create standard mount point /mnt/MountPointName on rclone mode mount
+					C: some GUI improvements for Themes extension
+                    N: add Chinese (Simplified) translation
+                    N: add Dutch translation
+                    N: add English (United Kingdom) translation
+                    N: add Italian translation
+                    C: update French translation
+                    C: update Greek translation
+                    C: update Swedish translation
+
 1.2     2018.12.02  some GUI improvements, new button icons
                     C: update French translation
                     C: update German translation

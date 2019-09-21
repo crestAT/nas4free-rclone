@@ -247,11 +247,14 @@ if ($_POST) {
 			if ($return_val == 0) $savemsg .= sprintf(gettext("Task %s has been %s."), $_POST['rcName'], gettext("saved successfully"))."<br />";
 			else $input_errors[] = sprintf(gettext("Task %s has been %s."), $_POST['rcName'], gettext("unsuccessfully saved")); 
 # --stats-one-line
+			if ($_POST['rcMode'] == "mount") $mountString = "mkdir -p {$_POST['rcDestination']}";	// create mount point
+			else $mountString = "";
 			fwrite($script, 
 "#!/bin/sh
 # WARNING: THIS IS AN AUTOMATICALLY CREATED SCRIPT, DO NOT CHANGE THE CONTENT!
 # Command for cron usage: {$rcTaskFile}
 PID=$$
+{$mountString}
 mkdir -p /var/run/rclone
 echo {$_POST['rcName']} > /var/run/rclone/\$PID.name
 logger '{$appName} task {$_POST['rcName']} started with PID = '\$PID
@@ -300,7 +303,7 @@ $(document).ready(function(){
 //]]>
 </script>
 <style style="text/css">
-	.hoverTable tr:hover td {background-color:#CCCCCC;}
+	.hoverTable tr:hover td {color:black; background-color:#CCCCCC;}
 </style>
 
 <form action="<?php echo $configName; ?>-config.php" method="post" name="iform" id="iform" onsubmit="spinner()">
@@ -364,7 +367,7 @@ $(document).ready(function(){
 			</tr>
 			<?php 
 				echo "<tr>";
-				echo "<td class='listlr'><input name='rcName' style='width:98%;' title='".gettext('Task Name')."' placeholder='".gettext('Name')."' value='{$rcName}' /></td>";
+				echo "<td class='listlr'><input name='rcName' class='formfld' style='width:98%;' title='".gettext('Task Name')."' placeholder='".gettext('Name')."' value='{$rcName}' /></td>";
 				/* source */
 				echo "<td class='listr'><span style='width:98%; white-space:nowrap;'>";
 					echo "<input name='rcSource' type='text' class='formfld' id='rcSource' style='width:calc(100% - 33px);' 
@@ -391,7 +394,7 @@ $(document).ready(function(){
 						if ($sOption == $rcMode) echo "<option value='{$sOption}' selected='selected'>{$sOption}</option>";
 						else echo "<option value='{$sOption}'>{$sOption}</option>"; 					
 				echo "</select></td>";
-				echo "<td class='listr' nowrap='nowrap'><input name='rcFlags' style='width:99%;' 
+				echo "<td class='listr' nowrap='nowrap'><input name='rcFlags' class='formfld' style='width:99%;' 
 					title='".sprintf(gettext('e.g. %s or command: %s'), "--exclude *.log --no-update-modtime", "lsd remote:Remote/Path")."' 
 					placeholder='".sprintf(gettext('e.g. %s or command: %s'), "--exclude *.log --no-update-modtime", "lsd remote:Remote/Path")."' 
 					value='{$rcFlags}' /></td>";
